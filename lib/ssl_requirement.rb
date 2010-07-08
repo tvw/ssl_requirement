@@ -64,6 +64,12 @@ module SslRequirement
     def ssl_allowed(*actions)
       write_inheritable_array(:ssl_allowed_actions, actions)
     end
+
+    # Allows, but does not enforce SSL for all methods. The named actions require SSL. Do not use together with ssl_exceptions,
+    # since it does not make sense.
+    def ssl_allow(*actions)
+      write_inheritable_array(:ssl_allowed_except_actions, actions)
+    end
   end
 
   protected
@@ -71,16 +77,25 @@ module SslRequirement
   def ssl_required?
     required = (self.class.read_inheritable_attribute(:ssl_required_actions) || [])
     except  = self.class.read_inheritable_attribute(:ssl_required_except_actions)
+    allowed_except = self.class.read_inheritable_attribute(:ssl_allowed_except_actions) || []
 
     unless except
-      required.include?(action_name.to_sym)
+      (required+allowed_except).include?(action_name.to_sym)
     else
       !except.include?(action_name.to_sym)
     end
   end
 
   def ssl_allowed?
-    (self.class.read_inheritable_attribute(:ssl_allowed_actions) || []).include?(action_name.to_sym)
+    required = (self.class.read_inheritable_attribute(:ssl_required_actions) || [])
+    allowed = (self.class.read_inheritable_attribute(:ssl_allowed_actions) || [])
+    allowed_except = self.class.read_inheritable_attribute(:ssl_allowed_except_actions)
+
+    unless allowed_except
+      allowed.include?(action_name.to_sym)
+    else
+      !(required+allowed_except).include?(action_name.to_sym)
+    end
   end
 
   # normal ports are the ports used when no port is specified by the user to the browser
